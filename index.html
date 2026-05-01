@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#05070d" />
-  <title>Among Us Hosting</title>
+  <title>Skeld Host</title>
   <style>
     :root{
       --bg:#04060b;
@@ -398,8 +398,8 @@
           <img id="topLogo" src="media/Thumbnail.png" alt="Among Us Hosting" onerror="this.src='https://placehold.co/200x200/111111/25EDC6?text=AU'" />
         </div>
         <div class="titleWrap">
-          <h1 class="title">Among Us Hosting</h1>
-          <p class="desc">A website free-hosting lobby code, easier, cleaner, and live-synced!</p>
+          <h1 class="title">Skeld Host</h1>
+          <p class="desc">Moz Studio | SkyeMoz</p>
         </div>
       </div>
       <div class="pillRow">
@@ -411,8 +411,8 @@
       <div class="card">
         <div class="cardBody actionBar">
           <div>
-            <div class="sectionTitle" style="margin-bottom:6px;"><h3>Main</h3><span>Host your lobby</span></div>
-            <div class="hint">Tap Host to publish a lobby with glassy cards, live hearts, and owner controls.</div>
+            <div class="sectionTitle" style="margin-bottom:6px;"><h3>Hosting</h3><span>Host your lobby</span></div>
+            <div class="hint">Tap create to publish.</div>
           </div>
           <button class="btn" id="hostBtn" type="button">Host</button>
         </div>
@@ -460,7 +460,7 @@
           </div>
           <div>
             <h2>Create your lobby</h2>
-            <p>Fill out the details and publish it live. Active lobbies can be copied. Inactive ones cannot.</p>
+            <p>Setting Inactive will still be public, BUT cannot copy code..</p>
           </div>
         </div>
 
@@ -484,7 +484,7 @@
             <select id="typeInput" class="select">
               <option>Modded</option>
               <option>Regular</option>
-              <option>Sns</option>
+              <option>Shift n Seek</option>
               <option>Hide And Seek</option>
             </select>
           </div>
@@ -542,7 +542,7 @@
         </div>
 
         <div class="noteBox">
-          Hosted lobbies sync live for everyone. If you set an expiration, the lobby auto-removes after that time.
+          New Updates will come soon. wait for it 🦊🟢
         </div>
       </div>
     </div>
@@ -1082,7 +1082,7 @@
 
     function seedInitialState(){
       state.ownerKey = getOwnerKey();
-      setLiveStatus('Live feed connected');
+      setLiveStatus('v1.0.0');
       updateExpirationFields();
       copyDefaultCodeIfNeeded();
     }
@@ -1102,4 +1102,4 @@
   </script>
 
 </body>
-                                           </html>
+</html>
