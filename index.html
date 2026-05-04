@@ -305,13 +305,18 @@
         <div class="modalHero">
           <div class="heroPic"><img id="signInPreview" src="https://placehold.co/300x300/111111/25EDC6?text=Profile" alt="Profile Preview" /></div>
           <div>
-            <h2>Enter your profile</h2>
-            <p>Pick a username and a profile picture. Usernames are unique, so taken names will be blocked.</p>
+            <h2>Enter your account</h2>
+            <p>Use your username and password to log in. New usernames will create an account and save locally plus backend when allowed.</p>
           </div>
         </div>
 
         <label class="fieldLabel">Username</label>
         <input id="signInUsername" class="input" type="text" maxlength="20" placeholder="Enter Username" />
+
+        <div style="margin-top:12px;">
+          <label class="fieldLabel">Password</label>
+          <input id="signInPassword" class="input" type="password" maxlength="64" placeholder="Enter Password" />
+        </div>
 
         <div style="margin-top:12px;">
           <label class="fieldLabel">Pick Profile</label>
@@ -325,15 +330,15 @@
         </div>
 
         <div class="authActions">
-          <button class="btn" id="assignBtn" type="button">Assign</button>
+          <button class="btn" id="assignBtn" type="button">Sign In</button>
         </div>
 
-        <div class="noteBox">This profile will stay signed in on this device. If the username is already taken, you will need to choose another one.</div>
+        <div class="noteBox">Your session is saved on this device. If backend rules block saving, the app keeps a local fallback so you can still log in.</div>
       </div>
     </div>
   </div>
 
-  <div class="modalBack" id="hostModal">
+<div class="modalBack" id="hostModal">
     <div class="modal">
       <div class="modalHead">
         <h3 class="modalTitle">Host Lobby</h3>
@@ -423,8 +428,8 @@
         <h3 class="modalTitle">Profile</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end">
           <button class="btnMini tabBtn" data-profile-tab="edit" id="profileTabEdit" type="button">Edit Profile</button>
-          <button class="btnMini tabBtn" data-profile-tab="requests" id="profileTabRequests" type="button">Friend Request</button>
           <button class="btnMini tabBtn" data-profile-tab="friends" id="profileTabFriends" type="button">Friends</button>
+          <button class="btnMini btnDanger" id="logoutBtn" type="button">Log Out</button>
           <button class="btnMini" id="closeProfileBtn" type="button">Close</button>
         </div>
       </div>
@@ -440,7 +445,6 @@ Status: --</div>
 
         <div class="profileTabs">
           <button class="tabBtn active" data-profile-tab="edit" type="button">Edit Profile</button>
-          <button class="tabBtn" data-profile-tab="requests" type="button">Friend Request</button>
           <button class="tabBtn" data-profile-tab="friends" type="button">Friends</button>
         </div>
 
@@ -476,11 +480,6 @@ Status: --</div>
           <div class="noteBox">Your profile stays saved on this device and syncs to the backend when permissions allow.</div>
         </div>
 
-        <div class="profilePanel" id="profilePanelRequests">
-          <div id="requestList" class="miniList"></div>
-          <div id="requestEmpty" class="emptyState hidden">No friend requests yet.</div>
-        </div>
-
         <div class="profilePanel" id="profilePanelFriends">
           <div id="friendsList" class="miniList"></div>
           <div id="friendsEmpty" class="emptyState hidden">No friends yet.</div>
@@ -497,13 +496,12 @@ Status: --</div>
 
         <div class="profileActionRow" id="profileActionRow">
           <button class="btn" id="continueBtn" type="button">Continue</button>
-          <button class="profileLinkBtn" id="addFriendBtn" type="button">Add Friend</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="toastWrap" id="toastWrap"></div>
+<div class="toastWrap" id="toastWrap"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -567,6 +565,7 @@ Status: --</div>
       closeSignInBtn: document.getElementById('closeSignInBtn'),
       assignBtn: document.getElementById('assignBtn'),
       closeProfileBtn: document.getElementById('closeProfileBtn'),
+      logoutBtn: document.getElementById('logoutBtn'),
       continueBtn: document.getElementById('continueBtn'),
       addFriendBtn: document.getElementById('addFriendBtn'),
       searchInput: document.getElementById('searchInput'),
@@ -594,6 +593,7 @@ Status: --</div>
       navProfileImg: document.getElementById('navProfileImg'),
       navProfileName: document.getElementById('navProfileName'),
       signInUsername: document.getElementById('signInUsername'),
+      signInPassword: document.getElementById('signInPassword'),
       signInThumbInput: document.getElementById('signInThumbInput'),
       signInPreview: document.getElementById('signInPreview'),
       signInThumbThumb: document.getElementById('signInThumbThumb'),
@@ -651,6 +651,7 @@ Status: --</div>
       claims: 'amongus_local_username_claims_v2',
       user: 'amongus_local_user_v2',
       profiles: 'amongus_local_profiles_v2',
+      accounts: 'amongus_local_accounts_v1',
       friendRequests: 'amongus_local_friend_requests_v2',
       presence: 'amongus_local_presence_v2'
     };
@@ -756,6 +757,95 @@ Status: --</div>
       return profiles[String(userId)] ? normalizeProfile(profiles[String(userId)]) : null;
     }
 
+    function loadLocalAccounts(){
+      return readLocalJSON(LOCAL_KEYS.accounts, {});
+    }
+
+    function saveLocalAccounts(map){
+      writeLocalJSON(LOCAL_KEYS.accounts, map && typeof map === 'object' ? map : {});
+    }
+
+    function normalizeAccount(account){
+      if (!account) return null;
+      const username = normalizeUsername(account.username || '');
+      const usernameLower = usernameKey(username);
+      if (!usernameLower) return null;
+      return {
+        userId: String(account.userId || ''),
+        username,
+        usernameLower,
+        displayName: normalizeUsername(account.displayName || username),
+        bio: String(account.bio || ''),
+        pfpUrl: account.pfpUrl || DEFAULT_PROFILE,
+        passwordHash: String(account.passwordHash || ''),
+        joinedAt: account.joinedAt || new Date().toISOString(),
+        lastPfpChangeAt: account.lastPfpChangeAt || null,
+        friends: Array.isArray(account.friends) ? account.friends.map(normalizeFriend).filter(Boolean) : []
+      };
+    }
+
+    function saveLocalAccount(account){
+      const normalized = normalizeAccount(account);
+      if (!normalized?.userId) return;
+      const accounts = loadLocalAccounts();
+      accounts[normalized.usernameLower] = normalized;
+      saveLocalAccounts(accounts);
+    }
+
+    function getLocalAccount(username){
+      const accounts = loadLocalAccounts();
+      return normalizeAccount(accounts[usernameKey(username)] || null);
+    }
+
+    async function hashText(text){
+      const payload = new TextEncoder().encode(String(text || ''));
+      const digest = await crypto.subtle.digest('SHA-256', payload);
+      return Array.from(new Uint8Array(digest)).map(n => n.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function getAccountRecord(username){
+      const local = getLocalAccount(username);
+      if (local) return local;
+      const lower = usernameKey(username);
+      try{
+        const snap = await getDoc(doc(db, 'accounts', lower));
+        if (snap.exists()) return normalizeAccount({ usernameLower: lower, ...snap.data() });
+      }catch(err){
+        if (!isPermissionError(err)) console.warn(err);
+      }
+      return null;
+    }
+
+    async function saveAccountRecord(account){
+      const normalized = normalizeAccount(account);
+      if (!normalized?.userId) return normalized;
+      saveLocalAccount(normalized);
+      try{
+        await setDoc(doc(db, 'accounts', normalized.usernameLower), {
+          userId: normalized.userId,
+          username: normalized.username,
+          usernameLower: normalized.usernameLower,
+          displayName: normalized.displayName || normalized.username,
+          bio: normalized.bio || '',
+          pfpUrl: normalized.pfpUrl || DEFAULT_PROFILE,
+          passwordHash: normalized.passwordHash || '',
+          joinedAt: normalized.joinedAt || new Date().toISOString(),
+          lastPfpChangeAt: normalized.lastPfpChangeAt || null,
+          friends: normalized.friends || [],
+          updatedAt: serverTimestamp(),
+          createdAt: normalized.joinedAt || serverTimestamp()
+        }, { merge: true });
+        state.useLocalFallback = false;
+      }catch(err){
+        if (isPermissionError(err)) {
+          state.useLocalFallback = true;
+        } else {
+          throw err;
+        }
+      }
+      return normalized;
+    }
+
     function loadLocalFriendRequests(){
       const raw = readLocalJSON(LOCAL_KEYS.friendRequests, []);
       return Array.isArray(raw) ? raw.map(normalizeFriendRequest).filter(Boolean) : [];
@@ -823,6 +913,7 @@ Status: --</div>
         ...base,
         displayName: normalizeUsername(profile.displayName || base.username || ''),
         bio: String(profile.bio || ''),
+        passwordHash: String(profile.passwordHash || ''),
         lastPfpChangeAt: profile.lastPfpChangeAt || null,
         friends: Array.isArray(profile.friends) ? profile.friends.map(normalizeFriend).filter(Boolean) : []
       };
@@ -1146,6 +1237,7 @@ Status: --</div>
 
     function resetSignInForm(){
       els.signInUsername.value = '';
+      if (els.signInPassword) els.signInPassword.value = '';
       els.signInThumbInput.value = '';
       els.signInPreview.src = DEFAULT_PROFILE;
       els.signInThumbThumb.src = 'https://placehold.co/200x200/111111/25EDC6?text=Pick';
@@ -1159,9 +1251,9 @@ Status: --</div>
     function setHeaderProfileUI(){
       const profile = getCurrentProfile();
       const pfp = profile?.pfpUrl || DEFAULT_PROFILE;
-      const name = profile?.displayName || profile?.username || 'Profile';
+      const name = profile?.displayName || profile?.username || 'Sign In';
       if (els.navProfileImg) els.navProfileImg.src = pfp;
-      if (els.navProfileName) els.navProfileName.textContent = name;
+      if (els.navProfileName) els.navProfileName.textContent = profile ? name : 'Sign In';
       const topLogo = document.getElementById('topLogo');
       if (topLogo) topLogo.src = pfp;
     }
@@ -1253,10 +1345,9 @@ Bio: ${p?.bio || 'No bio yet.'}`;
       if (els.profilePanelEdit) els.profilePanelEdit.classList.toggle('hidden', !self);
       if (els.profileTabEdit) els.profileTabEdit.classList.toggle('hidden', !self);
       if (els.saveProfileBtn) els.saveProfileBtn.classList.toggle('hidden', !self);
-      if (els.addFriendBtn) els.addFriendBtn.classList.toggle('hidden', self);
+      if (els.addFriendBtn) els.addFriendBtn.classList.toggle('hidden', true);
       if (els.continueBtn) els.continueBtn.textContent = self ? 'Continue' : 'Close';
       syncProfileEditorFields(p);
-      renderFriendRequests();
       renderFriendsList();
       setHeaderProfileUI();
     }
@@ -1386,58 +1477,64 @@ Bio: ${p?.bio || 'No bio yet.'}`;
       openModal(els.signInModal);
     }
 
-    async function claimUsername({ username, pfpUrl }){
+    async function claimUsername({ username, password, pfpUrl }){
       const clean = normalizeUsername(username);
       const lower = usernameKey(clean);
+      const secret = String(password || '').trim();
       if (!clean) throw new Error('Enter a username.');
       if (clean.length < 3) throw new Error('Username must be at least 3 characters.');
+      if (!secret) throw new Error('Enter a password.');
 
-      const userId = state.user?.userId || safeUUID();
+      const passwordHash = await hashText(secret);
+      const existing = await getAccountRecord(clean);
+      const userId = existing?.userId || state.user?.userId || safeUUID();
+      const createdAt = existing?.joinedAt || state.user?.joinedAt || new Date().toISOString();
+
+      if (existing){
+        const existingHash = String(existing.passwordHash || '');
+        if (existingHash && existingHash !== passwordHash) {
+          throw new Error('Wrong password.');
+        }
+      }
+
       const user = normalizeProfile({
         userId,
-        username: clean,
-        displayName: clean,
-        bio: '',
+        username: existing?.username || clean,
+        displayName: existing?.displayName || clean,
+        bio: existing?.bio || '',
         usernameLower: lower,
-        pfpUrl: pfpUrl || DEFAULT_PROFILE,
-        joinedAt: state.user?.joinedAt || new Date().toISOString(),
+        pfpUrl: pfpUrl || existing?.pfpUrl || DEFAULT_PROFILE,
+        joinedAt: createdAt,
         lastSeen: serverTimestamp(),
         updatedAt: serverTimestamp(),
         active: true,
-        friends: []
+        friends: Array.isArray(existing?.friends) ? existing.friends : [],
+        lastPfpChangeAt: existing?.lastPfpChangeAt || null,
+        passwordHash
       });
 
-      const claimRef = doc(db, 'usernameClaims', lower);
-      try{
-        await setDoc(claimRef, {
-          userId,
-          username: clean,
-          usernameLower: lower,
-          displayName: clean,
-          bio: '',
-          pfpUrl: pfpUrl || DEFAULT_PROFILE,
-          joinedAt: user.joinedAt,
-          updatedAt: serverTimestamp(),
-          createdAt: state.user?.joinedAt || serverTimestamp()
-        }, { merge: false });
-        state.useLocalFallback = false;
-      }catch(err){
-        console.warn('Username claim failed, using local fallback:', err);
-        const existing = getLocalClaim(clean);
-        if (existing && String(existing.userId || '') !== String(userId)) {
-          throw new Error('Username is already taken.');
-        }
-        state.useLocalFallback = true;
-        saveLocalClaim(user);
-      }
-
+      const mergedAccount = {
+        userId: user.userId,
+        username: user.username,
+        usernameLower: lower,
+        displayName: user.displayName || user.username,
+        bio: user.bio || '',
+        pfpUrl: user.pfpUrl || DEFAULT_PROFILE,
+        passwordHash,
+        joinedAt: user.joinedAt || createdAt,
+        lastPfpChangeAt: user.lastPfpChangeAt || null,
+        friends: user.friends || []
+      };
+      await saveAccountRecord(mergedAccount);
+      saveLocalClaim(user);
       return user;
     }
 
     async function signInNow(){
       const username = normalizeUsername(els.signInUsername.value);
+      const password = String(els.signInPassword?.value || '');
       const pfpUrl = state.selectedProfileDataURL || DEFAULT_PROFILE;
-      const user = await claimUsername({ username, pfpUrl });
+      const user = await claimUsername({ username, password, pfpUrl });
       setCurrentUser({ ...user, pfpUrl: user.pfpUrl || DEFAULT_PROFILE, displayName: user.displayName || user.username, bio: user.bio || '' });
       resetSignInForm();
       closeModal(els.signInModal);
@@ -1445,6 +1542,23 @@ Bio: ${p?.bio || 'No bio yet.'}`;
       openModal(els.hostModal);
       await touchUserPresence();
       await refreshCurrentProfile();
+    }
+
+    async function logoutUser(){
+      try{
+        localStorage.removeItem(STORAGE.session);
+        localStorage.removeItem(LOCAL_KEYS.user);
+      }catch{}
+      state.user = null;
+      state.profileData = null;
+      state.profileTarget = null;
+      state.selectedProfileDataURL = '';
+      setHeaderProfileUI();
+      resetSignInForm();
+      closeModal(els.profileModal);
+      closeModal(els.hostModal);
+      openModal(els.signInModal);
+      showToast('Logged out', 'Session cleared on this device.', 'ok');
     }
 
     async function touchUserPresence(){
@@ -1556,14 +1670,25 @@ Bio: ${p?.bio || 'No bio yet.'}`;
     }
 
     function openPlayerProfileModal(lobby){
-      const username = lobby.ownerUsername || lobby.ownerKey || 'Unknown';
-      const pfp = lobby.ownerPfp || DEFAULT_PROFILE;
-      const joinedAt = lobby.ownerJoinedAt || null;
-      const active = lobby.ownerUserId ? state.activeUserIds.has(lobby.ownerUserId) : false;
-      state.profileTarget = lobby;
-      els.profilePfpImg.src = pfp;
-      els.profileUsername.textContent = username;
-      els.profileDetails.textContent = `Username: ${username}\nDate Joined: ${formatDate(joinedAt)}\nStatus: ${active ? 'Active' : 'Offline'}`;
+      const lobbyProfile = normalizeProfile({
+        userId: lobby.ownerUserId || '',
+        username: lobby.ownerUsername || lobby.ownerKey || 'Unknown',
+        displayName: lobby.ownerUsername || lobby.ownerKey || 'Unknown',
+        bio: '',
+        pfpUrl: lobby.ownerPfp || DEFAULT_PROFILE,
+        joinedAt: lobby.ownerJoinedAt || null,
+        active: lobby.active !== false,
+        friends: []
+      });
+      const localProfile = lobby.ownerUserId ? (loadLocalProfile(lobby.ownerUserId) || state.activeUsersMap.get(String(lobby.ownerUserId)) || null) : null;
+      const merged = normalizeProfile(localProfile ? { ...lobbyProfile, ...localProfile } : lobbyProfile);
+      const isSelf = !!state.user?.userId && String(merged.userId || '') === String(state.user.userId);
+      merged.bio = merged.bio || 'No bio yet.';
+      state.profileTarget = merged;
+      renderProfileModal(merged);
+      if (els.profileActionRow) els.profileActionRow.classList.toggle('hidden', !isSelf);
+      if (els.saveProfileBtn) els.saveProfileBtn.classList.toggle('hidden', !isSelf);
+      if (els.continueBtn) els.continueBtn.textContent = isSelf ? 'Continue' : 'Close';
       openModal(els.profileModal);
     }
 
@@ -2141,7 +2266,6 @@ Bio: ${p?.bio || 'No bio yet.'}`;
       saveLocalClaim(nextMe);
       saveLocalProfile(nextMe);
       renderProfileModal(nextMe);
-      renderFriendRequests();
       renderFriendsList();
       showToast('Friends', 'Request accepted.', 'ok');
     }
@@ -2172,12 +2296,25 @@ Bio: ${p?.bio || 'No bio yet.'}`;
         bio: nextBio,
         pfpUrl: nextPfp,
         lastPfpChangeAt: state.selectedProfileDataURL ? new Date().toISOString() : current.lastPfpChangeAt,
-        friends: current.friends || []
+        friends: current.friends || [],
+        passwordHash: current.passwordHash || state.user?.passwordHash || ''
       });
       state.selectedProfileDataURL = '';
       if (els.editProfilePfpThumb) els.editProfilePfpThumb.src = next.pfpUrl || DEFAULT_PROFILE;
       const oldClaim = usernameKey(current.username);
       const newClaim = usernameKey(next.username);
+      const nextAccount = {
+        userId: next.userId,
+        username: next.username,
+        usernameLower: newClaim,
+        displayName: next.displayName || next.username,
+        bio: next.bio || '',
+        pfpUrl: next.pfpUrl || DEFAULT_PROFILE,
+        passwordHash: current.passwordHash || state.user?.passwordHash || getLocalAccount(current.username)?.passwordHash || '',
+        joinedAt: next.joinedAt || current.joinedAt || new Date().toISOString(),
+        lastPfpChangeAt: next.lastPfpChangeAt || current.lastPfpChangeAt || null,
+        friends: next.friends || []
+      };
       if (oldClaim !== newClaim){
         const localClaims = loadLocalClaims();
         if (localClaims[newClaim] && String(localClaims[newClaim].userId || '') !== String(current.userId)) {
@@ -2194,6 +2331,10 @@ Bio: ${p?.bio || 'No bio yet.'}`;
           updatedAt: new Date().toISOString()
         };
         writeLocalJSON(LOCAL_KEYS.claims, localClaims);
+        const localAccounts = loadLocalAccounts();
+        delete localAccounts[oldClaim];
+        localAccounts[newClaim] = normalizeAccount(nextAccount);
+        saveLocalAccounts(localAccounts);
         try{
           await Promise.allSettled([
             deleteDoc(doc(db, 'usernameClaims', oldClaim)),
@@ -2207,6 +2348,45 @@ Bio: ${p?.bio || 'No bio yet.'}`;
               joinedAt: next.joinedAt || new Date().toISOString(),
               updatedAt: serverTimestamp(),
               createdAt: next.joinedAt || serverTimestamp()
+            }, { merge: true }),
+            deleteDoc(doc(db, 'accounts', oldClaim)),
+            setDoc(doc(db, 'accounts', newClaim), {
+              userId: next.userId,
+              username: next.username,
+              usernameLower: newClaim,
+              displayName: next.displayName || next.username,
+              bio: next.bio || '',
+              pfpUrl: next.pfpUrl || DEFAULT_PROFILE,
+              passwordHash: nextAccount.passwordHash || '',
+              joinedAt: next.joinedAt || new Date().toISOString(),
+              lastPfpChangeAt: next.lastPfpChangeAt || null,
+              friends: next.friends || [],
+              updatedAt: serverTimestamp(),
+              createdAt: next.joinedAt || serverTimestamp()
+            }, { merge: true })
+          ]);
+        }catch(err){
+          if (!isPermissionError(err)) console.warn(err);
+        }
+      } else {
+        const localAccounts = loadLocalAccounts();
+        localAccounts[newClaim] = normalizeAccount(nextAccount);
+        saveLocalAccounts(localAccounts);
+        try{
+          await Promise.allSettled([
+            setDoc(doc(db, 'accounts', newClaim), {
+              userId: next.userId,
+              username: next.username,
+              usernameLower: newClaim,
+              displayName: next.displayName || next.username,
+              bio: next.bio || '',
+              pfpUrl: next.pfpUrl || DEFAULT_PROFILE,
+              passwordHash: nextAccount.passwordHash || '',
+              joinedAt: next.joinedAt || new Date().toISOString(),
+              lastPfpChangeAt: next.lastPfpChangeAt || null,
+              friends: next.friends || [],
+              updatedAt: serverTimestamp(),
+              createdAt: next.joinedAt || serverTimestamp()
             }, { merge: true })
           ]);
         }catch(err){
@@ -2218,9 +2398,17 @@ Bio: ${p?.bio || 'No bio yet.'}`;
       renderProfileModal(next);
       showToast('Saved', 'Profile updated.', 'ok');
     }
+
     function bindEvents(){
       els.expirationMode.addEventListener('change', updateExpirationFields);
-      if (els.profileBtn) els.profileBtn.addEventListener('click', () => openProfileEditor(state.user || state.profileData || null));
+      if (els.profileBtn) els.profileBtn.addEventListener('click', () => {
+        if (!isLoggedIn()) {
+          resetSignInForm();
+          openModal(els.signInModal);
+          return;
+        }
+        openProfileEditor(state.user || state.profileData || null);
+      });
       [els.profileTabEdit, els.profileTabRequests, els.profileTabFriends].forEach(btn => {
         if (!btn) return;
         btn.addEventListener('click', () => setProfileTab(btn.getAttribute('data-profile-tab') || 'edit'));
@@ -2297,21 +2485,10 @@ Bio: ${p?.bio || 'No bio yet.'}`;
       els.closeSignInBtn.addEventListener('click', () => closeModal(els.signInModal));
       els.closeProfileBtn.addEventListener('click', () => closeModal(els.profileModal));
       els.continueBtn.addEventListener('click', () => {
-        if (state.profileTab !== 'edit' && state.profileTarget && String(state.profileTarget.userId || '') !== String(state.user?.userId || '')) {
-          setProfileTab('friends');
-          renderProfileModal(state.profileTarget);
-          return;
-        }
         closeModal(els.profileModal);
       });
-      els.addFriendBtn.addEventListener('click', async () => {
-        try{
-          const target = state.profileTarget || state.user;
-          await sendFriendRequest(target);
-        }catch(err){
-          console.error(err);
-          showToast('Friend request', err.message || 'Unknown error', 'err');
-        }
+      els.logoutBtn?.addEventListener('click', async () => {
+        await logoutUser();
       });
       els.assignBtn.addEventListener('click', async () => {
         try{ await signInNow(); }
